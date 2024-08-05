@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <p align="center">
     <a id="SAITS" href="#SAITS">
         <img src="https://pypots.com/figs/pypots_logos/SAITS/banner.jpg" alt="SAITS Title" title="SAITS Title" width="80%"/>
@@ -269,3 +270,7 @@ And thank you all for your attention to this work.
 ## ❖ Last but Not Least
 If you have any additional questions or have interests in collaboration, 
 please take a look at [my GitHub profile](https://github.com/WenjieDu) and feel free to contact me 😃.
+=======
+# AUST-li-mianchu
+拿SAITS运行AUST数据集
+>>>>>>> 423754909c26c74b637c8a3328ff26ee925a1b72
