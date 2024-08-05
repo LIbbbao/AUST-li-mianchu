@@ -296,6 +296,18 @@ class LoadDataForImputation(LoadDataset):
         return sample
 
 
+import os
+import numpy as np
+from torch.utils.data import DataLoader
+
+
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, Dataset
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
 class UnifiedDataLoader:
     def __init__(
         self,
@@ -307,16 +319,7 @@ class UnifiedDataLoader:
         num_workers=4,
         masked_imputation_task=False,
     ):
-        """
-        dataset_path: path of directory storing h5 dataset;
-        seq_len: sequence length, i.e. time steps;
-        feature_num: num of features, i.e. feature dimensionality;
-        batch_size: size of mini batch;
-        num_workers: num of subprocesses for data loading;
-        model_type: model type, determine returned values;
-        masked_imputation_task: whether to return data for masked imputation task, only for training/validation sets;
-        """
-        self.dataset_path = os.path.join(dataset_path, "datasets.h5")
+        self.dataset_path = dataset_path
         self.seq_len = seq_len
         self.feature_num = feature_num
         self.batch_size = batch_size
@@ -328,52 +331,71 @@ class UnifiedDataLoader:
         self.val_dataset, self.val_loader, self.val_set_size = None, None, None
         self.test_dataset, self.test_loader, self.test_set_size = None, None, None
 
+    def load_data(self):
+        data = np.load(self.dataset_path)
+        self.train_dataset = data['X']  # Adjust based on the available keys
+        self.val_dataset = data['X_holdout']
+        self.test_dataset = data['X']
+        self.train_mask = data['missing_mask']
+        self.val_mask = data['indicating_mask']
+        self.test_mask = data['missing_mask']
+        print(f"train_dataset shape: {self.train_dataset.shape}")
+        print(f"train_mask shape: {self.train_mask.shape}")
+        print(f"val_dataset shape: {self.val_dataset.shape}")
+        print(f"val_mask shape: {self.val_mask.shape}")
+        print(f"test_dataset shape: {self.test_dataset.shape}")
+        print(f"test_mask shape: {self.test_mask.shape}")
+
     def get_train_val_dataloader(self):
-        self.train_dataset = LoadTrainDataset(
-            self.dataset_path,
-            self.seq_len,
-            self.feature_num,
-            self.model_type,
-            self.masked_imputation_task,
-        )
-        self.val_dataset = LoadValTestDataset(
-            self.dataset_path, "val", self.seq_len, self.feature_num, self.model_type
-        )
-        self.train_set_size = self.train_dataset.__len__()
-        self.val_set_size = self.val_dataset.__len__()
+        self.load_data()  # Load data inside this function
+
         self.train_loader = DataLoader(
-            self.train_dataset,
-            self.batch_size,
+            list(zip(self.train_dataset, self.train_mask)),
+            batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
         )
         self.val_loader = DataLoader(
-            self.val_dataset,
-            self.batch_size,
-            shuffle=True,
+            list(zip(self.val_dataset, self.val_mask)),
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.num_workers,
         )
+        self.train_set_size = len(self.train_dataset)
+        self.val_set_size = len(self.val_dataset)
         return self.train_loader, self.val_loader
 
     def get_test_dataloader(self):
-        self.test_dataset = LoadValTestDataset(
-            self.dataset_path, "test", self.seq_len, self.feature_num, self.model_type
-        )
-        self.test_set_size = self.test_dataset.__len__()
+        self.load_data()  # Load data inside this function
+
         self.test_loader = DataLoader(
-            self.test_dataset,
-            self.batch_size,
-            shuffle=True,
+            list(zip(self.test_dataset, self.test_mask)),
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.num_workers,
         )
+        self.test_set_size = len(self.test_dataset)
         return self.test_loader
 
     def prepare_dataloader_for_imputation(self, set_name):
-        data_for_imputation = LoadDataForImputation(
-            self.dataset_path, set_name, self.seq_len, self.feature_num, self.model_type
-        )
+        if set_name == "train":
+            dataset = self.train_dataset
+            mask = self.train_mask
+        elif set_name == "val":
+            dataset = self.val_dataset
+            mask = self.val_mask
+        elif set_name == "test":
+            dataset = self.test_dataset
+            mask = self.test_mask
+        else:
+            raise ValueError(f"Unknown set name: {set_name}")
+
+        data_for_imputation = {
+            'dataset': dataset,
+            'mask': mask
+        }
         dataloader_for_imputation = DataLoader(
-            data_for_imputation, self.batch_size, shuffle=False
+            data_for_imputation, batch_size=self.batch_size, shuffle=False
         )
         return dataloader_for_imputation
 
@@ -382,3 +404,165 @@ class UnifiedDataLoader:
         val_set_for_imputation = self.prepare_dataloader_for_imputation("val")
         test_set_for_imputation = self.prepare_dataloader_for_imputation("test")
         return train_set_for_imputation, val_set_for_imputation, test_set_for_imputation
+
+
+
+class TransformerEncoder(nn.Module):
+    def __init__(
+        self,
+        n_groups,
+        n_group_inner_layers,
+        d_time,
+        d_feature,
+        d_model,
+        d_inner,
+        n_head,
+        d_k,
+        d_v,
+        dropout,
+        **kwargs
+    ):
+        super().__init__()
+        self.n_groups = n_groups
+        self.n_group_inner_layers = n_group_inner_layers
+        self.input_with_mask = kwargs["input_with_mask"]
+        actual_d_feature = d_feature * 2 if self.input_with_mask else d_feature
+        self.param_sharing_strategy = kwargs["param_sharing_strategy"]
+        self.MIT = kwargs["MIT"]
+        self.device = kwargs["device"]
+
+        if kwargs["param_sharing_strategy"] == "between_group":
+            self.layer_stack = nn.ModuleList(
+                [
+                    EncoderLayer(
+                        d_time,
+                        actual_d_feature,
+                        d_model,
+                        d_inner,
+                        n_head,
+                        d_k,
+                        d_v,
+                        dropout,
+                        dropout,
+                        **kwargs
+                    )
+                    for _ in range(n_group_inner_layers)
+                ]
+            )
+        else:
+            self.layer_stack = nn.ModuleList(
+                [
+                    EncoderLayer(
+                        d_time,
+                        actual_d_feature,
+                        d_model,
+                        d_inner,
+                        n_head,
+                        d_k,
+                        d_v,
+                        dropout,
+                        dropout,
+                        **kwargs
+                    )
+                    for _ in range(n_groups)
+                ]
+            )
+
+        self.embedding = nn.Linear(actual_d_feature, d_model)
+        self.position_enc = PositionalEncoding(d_model, n_position=d_time)
+        self.dropout = nn.Dropout(p=dropout)
+        self.reduce_dim = nn.Linear(d_model, d_feature)
+
+    def impute(self, inputs):
+        X, masks = inputs["X"], inputs["missing_mask"]
+        print(f"X shape: {X.shape}")
+        print(f"masks shape: {masks.shape}")
+
+        if X.dim() == 3 and masks.dim() == 3:
+            input_X = torch.cat([X, masks], dim=2) if self.input_with_mask else X
+        else:
+            raise ValueError("X and masks must be 3-dimensional")
+
+        input_X = self.embedding(input_X)
+        enc_output = self.dropout(self.position_enc(input_X))
+
+        if self.param_sharing_strategy == "between_group":
+            for _ in range(self.n_groups):
+                for encoder_layer in self.layer_stack:
+                    enc_output, _ = encoder_layer(enc_output)
+        else:
+            for encoder_layer in self.layer_stack:
+                for _ in range(self.n_group_inner_layers):
+                    enc_output, _ = encoder_layer(enc_output)
+
+        learned_presentation = self.reduce_dim(enc_output)
+        imputed_data = (
+            masks * X + (1 - masks) * learned_presentation
+        )  # replace non-missing part with original data
+        return imputed_data, learned_presentation
+
+    def forward(self, inputs, stage):
+        X, masks = inputs["X"], inputs["missing_mask"]
+        imputed_data, learned_presentation = self.impute(inputs)
+        reconstruction_MAE = masked_mae_cal(learned_presentation, X, masks)
+        if (self.MIT or stage == "val") and stage != "test":
+            imputation_MAE = masked_mae_cal(
+                learned_presentation, inputs["X_holdout"], inputs["indicating_mask"]
+            )
+        else:
+            imputation_MAE = torch.tensor(0.0)
+
+        return {
+            "imputed_data": imputed_data,
+            "reconstruction_loss": reconstruction_MAE,
+            "imputation_loss": imputation_MAE,
+            "reconstruction_MAE": reconstruction_MAE,
+            "imputation_MAE": imputation_MAE,
+        }
+
+
+
+
+
+class LoadTrainDataset:
+    def __init__(self, data, seq_len, feature_num, model_type, masked_imputation_task):
+        self.data = data
+        self.seq_len = seq_len
+        self.feature_num = feature_num
+        self.model_type = model_type
+        self.masked_imputation_task = masked_imputation_task
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+class LoadValTestDataset:
+    def __init__(self, data, set_type, seq_len, feature_num, model_type):
+        self.data = data
+        self.set_type = set_type
+        self.seq_len = seq_len
+        self.feature_num = feature_num
+        self.model_type = model_type
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+class LoadDataForImputation:
+    def __init__(self, data, set_name, seq_len, feature_num, model_type):
+        self.data = data
+        self.set_name = set_name
+        self.seq_len = seq_len
+        self.feature_num = feature_num
+        self.model_type = model_type
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+

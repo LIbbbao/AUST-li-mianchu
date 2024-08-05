@@ -26,6 +26,7 @@ import argparse
 import math
 import os
 import warnings
+import logging 
 from configparser import ConfigParser, ExtendedInterpolation
 from datetime import datetime
 
@@ -61,6 +62,8 @@ np.random.seed(RANDOM_SEED)
 torch.manual_seed(RANDOM_SEED)
 warnings.filterwarnings("ignore")  # if to ignore warnings
 
+from path_utils import get_current_time_str, create_directory, clean_path  
+
 MODEL_DICT = {
     # Self-Attention (SA) based
     "Transformer": TransformerEncoder,
@@ -70,7 +73,61 @@ MODEL_DICT = {
     "MRNN": MRNN,
 }
 OPTIMIZER = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
+from path_utils import get_current_time_str, create_directory, clean_path  
 
+def parse_args():  
+    parser = argparse.ArgumentParser(description='Run model training and testing.')  
+    parser.add_argument('--config_path', type=str, required=True, help='Path to the configuration file.')  
+    parser.add_argument('--result_saving_base_dir', type=str, default='results', help='Base directory for saving results.')  
+    parser.add_argument('--model_name', type=str, default='model', help='Name of the model.')  
+    parser.add_argument('--test_mode', action='store_true', help='Enable test mode.')  
+    parser.add_argument('--log_saving', type=str, default='logs', help='Directory for saving logs.')  
+    return parser.parse_args()  
+
+time_now = get_current_time_str()  
+
+def check_saving_dir_for_model(args, time_now):  
+    saving_path = clean_path(os.path.join(args.result_saving_base_dir, args.model_name))  
+    logging.debug(f"Saving path base: {saving_path}")  
+    if not args.test_mode:  
+        log_saving = create_directory(clean_path(os.path.join(saving_path, "logs")))  
+        model_saving = create_directory(clean_path(os.path.join(saving_path, "models", time_now)))  
+        logging.debug(f"Model saving path: {model_saving}, Log saving path: {log_saving}")  
+        return model_saving, log_saving  
+    else:  
+        log_saving = create_directory(clean_path(os.path.join(saving_path, "test_log")))  
+        logging.debug(f"Test log saving path: {log_saving}")  
+        return None, log_saving  
+
+def setup_logger(log_file_path, log_name, mode="a"):  
+    logger = logging.getLogger(log_name)  
+    logger.setLevel(logging.DEBUG)  
+
+    fh = logging.FileHandler(clean_path(log_file_path), mode=mode)  
+    fh.setLevel(logging.DEBUG)  
+    ch = logging.StreamHandler()  
+    ch.setLevel(logging.DEBUG)  
+
+    formatter = logging.Formatter("%(asctime)s - %(message)s")  
+    fh.setFormatter(formatter)  
+    ch.setFormatter(formatter)  
+    logger.addHandler(fh)  
+    logger.addHandler(ch)  
+    logger.propagate = False  
+    return logger  
+
+def read_config_file(config_path):  
+    cfg = ConfigParser(interpolation=ExtendedInterpolation())  
+    try:  
+        with open(config_path, 'r', encoding='utf-8') as f:  
+            cfg.read_file(f)  
+    except UnicodeDecodeError as e:  
+        print(f"Unicode decoding error: {e}")  
+        raise  
+    except Exception as e:  
+        print(f"Failed to read the config file: {e}")  
+        raise  
+    return cfg 
 
 def read_arguments(arg_parser, cfg_parser):
     # file path
@@ -112,8 +169,7 @@ def read_arguments(arg_parser, cfg_parser):
     # model settings
     arg_parser.model_name = cfg_parser.get("model", "model_name")
     arg_parser.model_type = cfg_parser.get("model", "model_type")
-    return arg_parser
-
+    return arg_parser  
 
 def summary_write_into_tb(summary_writer, info_dict, step, stage):
     """write summary into tensorboard file"""
@@ -178,91 +234,31 @@ def model_processing(
     data,
     model,
     stage,
-    # following arguments are only required in the training stage
     optimizer=None,
     val_dataloader=None,
     summary_writer=None,
     training_controller=None,
     logger=None,
+    args=None
 ):
+    print(f"Stage: {stage}")
+    print(f"Data length: {len(data)}")
+    for idx, item in enumerate(data):
+        print(f"Item {idx} shape: {item.shape}")
+
     if stage == "train":
         optimizer.zero_grad()
-        if not args.MIT:
-            if args.model_type in ["BRITS", "MRNN"]:
-                (
-                    indices,
-                    X,
-                    missing_mask,
-                    deltas,
-                    back_X,
-                    back_missing_mask,
-                    back_deltas,
-                ) = map(lambda x: x.to(args.device), data)
-                inputs = {
-                    "indices": indices,
-                    "forward": {"X": X, "missing_mask": missing_mask, "deltas": deltas},
-                    "backward": {
-                        "X": back_X,
-                        "missing_mask": back_missing_mask,
-                        "deltas": back_deltas,
-                    },
-                }
-            else:  # then for self-attention based models, i.e. Transformer/SAITS
-                indices, X, missing_mask = map(lambda x: x.to(args.device), data)
-                inputs = {"indices": indices, "X": X, "missing_mask": missing_mask}
-            results = result_processing(model(inputs, stage))
-            early_stopping = process_each_training_step(
-                results,
-                optimizer,
-                val_dataloader,
-                training_controller,
-                summary_writer,
-                logger,
-            )
-        else:
-            if args.model_type in ["BRITS", "MRNN"]:
-                (
-                    indices,
-                    X,
-                    missing_mask,
-                    deltas,
-                    back_X,
-                    back_missing_mask,
-                    back_deltas,
-                    X_holdout,
-                    indicating_mask,
-                ) = map(lambda x: x.to(args.device), data)
-                inputs = {
-                    "indices": indices,
-                    "X_holdout": X_holdout,
-                    "indicating_mask": indicating_mask,
-                    "forward": {"X": X, "missing_mask": missing_mask, "deltas": deltas},
-                    "backward": {
-                        "X": back_X,
-                        "missing_mask": back_missing_mask,
-                        "deltas": back_deltas,
-                    },
-                }
-            else:
-                indices, X, missing_mask, X_holdout, indicating_mask = map(
-                    lambda x: x.to(args.device), data
-                )
-                inputs = {
-                    "indices": indices,
-                    "X": X,
-                    "missing_mask": missing_mask,
-                    "X_holdout": X_holdout,
-                    "indicating_mask": indicating_mask,
-                }
-            results = result_processing(model(inputs, stage))
-            early_stopping = process_each_training_step(
-                results,
-                optimizer,
-                val_dataloader,
-                training_controller,
-                summary_writer,
-                logger,
-            )
+        X, missing_mask = map(lambda x: x.to(args.device), data)
+        inputs = {"X": X, "missing_mask": missing_mask}
+        results = result_processing(model(inputs, stage))
+        early_stopping = process_each_training_step(
+            results,
+            optimizer,
+            val_dataloader,
+            training_controller,
+            summary_writer,
+            logger,
+        )
         return early_stopping
 
     else:  # in val/test stage
@@ -289,20 +285,26 @@ def model_processing(
                     "deltas": back_deltas,
                 },
             }
-            inputs["missing_mask"] = inputs["forward"][
-                "missing_mask"
-            ]  # for error calculation in validation stage
+            inputs["missing_mask"] = inputs["forward"]["missing_mask"]
         else:
-            indices, X, missing_mask, X_holdout, indicating_mask = map(
-                lambda x: x.to(args.device), data
-            )
-            inputs = {
-                "indices": indices,
-                "X": X,
-                "missing_mask": missing_mask,
-                "X_holdout": X_holdout,
-                "indicating_mask": indicating_mask,
-            }
+            if len(data) == 2:
+                X, missing_mask = map(lambda x: x.to(args.device), data)
+                inputs = {
+                    "X": X,
+                    "missing_mask": missing_mask,
+                }
+            elif len(data) == 4:
+                X, missing_mask, X_holdout, indicating_mask = map(lambda x: x.to(args.device), data)
+                inputs = {
+                    "X": X,
+                    "missing_mask": missing_mask,
+                    "X_holdout": X_holdout,
+                    "indicating_mask": indicating_mask,
+                }
+            else:
+                print(f"Unexpected data format with length {len(data)}")
+                raise ValueError("Unexpected data format")
+
         results = model(inputs, stage)
         results = result_processing(results)
         return inputs, results
@@ -312,10 +314,11 @@ def train(
     model,
     optimizer,
     train_dataloader,
-    test_dataloader,
+    val_dataloader,
     summary_writer,
     training_controller,
     logger,
+    args
 ):
     for epoch in range(args.epochs):
         early_stopping = False
@@ -327,10 +330,11 @@ def train(
                 model,
                 "train",
                 optimizer,
-                test_dataloader,
+                val_dataloader,
                 summary_writer,
                 training_controller,
                 logger,
+                args
             )
             if early_stopping:
                 break
@@ -338,6 +342,9 @@ def train(
             break
         training_controller.epoch_num_plus_1()
     logger.info("Finished all epochs. Stop training now.")
+
+
+
 
 
 def validate(model, val_iter, summary_writer, training_controller, logger):
@@ -501,117 +508,14 @@ def impute_all_missing_data(model, train_data, val_data, test_data):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str, help="path of config file")
-    parser.add_argument(
-        "--test_mode",
-        dest="test_mode",
-        action="store_true",
-        help="test mode to test saved model",
-    )
-    parser.add_argument(
-        "--param_searching_mode",
-        dest="param_searching_mode",
-        action="store_true",
-        help="use NNI to help search hyper parameters",
-    )
-    args = parser.parse_args()
-    assert os.path.exists(
-        args.config_path
-    ), f'Given config file "{args.config_path}" does not exists'
-    # load settings from config file
-    cfg = ConfigParser(interpolation=ExtendedInterpolation())
-    cfg.read(args.config_path)
-    args = read_arguments(args, cfg)
+    args = parse_args()
+    cfg_parser = ConfigParser(interpolation=ExtendedInterpolation())
+    cfg_parser.read(args.config_path)
+    args = read_arguments(args, cfg_parser)
 
-    if args.model_type in ["Transformer", "SAITS"]:  # if SA-based model
-        args.input_with_mask = cfg.getboolean("model", "input_with_mask")
-        args.n_groups = cfg.getint("model", "n_groups")
-        args.n_group_inner_layers = cfg.getint("model", "n_group_inner_layers")
-        args.param_sharing_strategy = cfg.get("model", "param_sharing_strategy")
-        assert args.param_sharing_strategy in [
-            "inner_group",
-            "between_group",
-        ], 'only "inner_group"/"between_group" sharing'
-        args.d_model = cfg.getint("model", "d_model")
-        args.d_inner = cfg.getint("model", "d_inner")
-        args.n_head = cfg.getint("model", "n_head")
-        args.d_k = cfg.getint("model", "d_k")
-        args.d_v = cfg.getint("model", "d_v")
-        args.dropout = cfg.getfloat("model", "dropout")
-        args.diagonal_attention_mask = cfg.getboolean(
-            "model", "diagonal_attention_mask"
-        )
-
-        dict_args = vars(args)
-        if args.param_searching_mode:
-            tuner_params = nni.get_next_parameter()
-            dict_args.update(tuner_params)
-            experiment_id = nni.get_experiment_id()
-            trial_id = nni.get_trial_id()
-            args.model_name = f"{args.model_name}/{experiment_id}/{trial_id}"
-            dict_args["d_k"] = dict_args["d_model"] // dict_args["n_head"]
-        model_args = {
-            "device": args.device,
-            "MIT": args.MIT,
-            # imputer args
-            "n_groups": dict_args["n_groups"],
-            "n_group_inner_layers": args.n_group_inner_layers,
-            "d_time": args.seq_len,
-            "d_feature": args.feature_num,
-            "dropout": dict_args["dropout"],
-            "d_model": dict_args["d_model"],
-            "d_inner": dict_args["d_inner"],
-            "n_head": dict_args["n_head"],
-            "d_k": dict_args["d_k"],
-            "d_v": dict_args["d_v"],
-            "input_with_mask": args.input_with_mask,
-            "diagonal_attention_mask": args.diagonal_attention_mask,
-            "param_sharing_strategy": args.param_sharing_strategy,
-        }
-    elif args.model_type in ["BRITS", "MRNN"]:  # if RNN-based model
-        if args.model_type == "BRITS":
-            args.consistency_loss_weight = cfg.getfloat(
-                "training", "consistency_loss_weight"
-            )
-        args.rnn_hidden_size = cfg.getint("model", "rnn_hidden_size")
-
-        dict_args = vars(args)
-        if args.param_searching_mode:
-            tuner_params = nni.get_next_parameter()
-            dict_args.update(tuner_params)
-            experiment_id = nni.get_experiment_id()
-            trial_id = nni.get_trial_id()
-            args.model_name = f"{args.model_name}/{experiment_id}/{trial_id}"
-        model_args = {
-            "device": args.device,
-            "MIT": args.MIT,
-            # imputer args
-            "seq_len": args.seq_len,
-            "feature_num": args.feature_num,
-            "rnn_hidden_size": dict_args["rnn_hidden_size"],
-        }
-    else:
-        assert (
-            ValueError
-        ), f"Given model_type {args.model_type} is not in {MODEL_DICT.keys()}"
-
-    # parameter insurance
-    assert args.model_saving_strategy.lower() in [
-        "all",
-        "best",
-        "none",
-    ], "model saving strategy must be all/best/none"
-    if args.model_saving_strategy.lower() == "none":
-        args.model_saving_strategy = False
-    assert (
-        args.optimizer_type in OPTIMIZER.keys()
-    ), f"optimizer type should be in {OPTIMIZER.keys()}, but get{args.optimizer_type}"
-    assert args.device in ["cpu", "cuda"], "device should be cpu or cuda"
-
-    time_now = datetime.now().__format__("%Y-%m-%d_T%H:%M:%S")
+    time_now = datetime.now().strftime("%Y-%m-%d_T%H:%M:%S")
     args.model_saving, args.log_saving = check_saving_dir_for_model(args, time_now)
-    logger = setup_logger(args.log_saving + "_" + time_now, "w")
+    logger = setup_logger(args.log_saving + "_" + time_now, "run_logger", "w")
     logger.info(f"args: {args}")
     logger.info(f"Config file path: {args.config_path}")
     logger.info(f"Model name: {args.model_name}")
@@ -625,59 +529,69 @@ if __name__ == "__main__":
         args.num_workers,
         args.MIT,
     )
+
+    MODEL_DICT = {
+        "Transformer": TransformerEncoder,
+        "SAITS": SAITS,
+        "BRITS": BRITS,
+        "MRNN": MRNN,
+    }
+
+    model_args = {
+        "device": args.device,
+        "MIT": args.MIT,
+        "n_groups": cfg_parser.getint("model", "n_groups"),
+        "n_group_inner_layers": cfg_parser.getint("model", "n_group_inner_layers"),
+        "d_time": args.seq_len,
+        "d_feature": args.feature_num,
+        "dropout": cfg_parser.getfloat("model", "dropout"),
+        "d_model": cfg_parser.getint("model", "d_model"),
+        "d_inner": cfg_parser.getint("model", "d_inner"),
+        "n_head": cfg_parser.getint("model", "n_head"),
+        "d_k": cfg_parser.getint("model", "d_k"),
+        "d_v": cfg_parser.getint("model", "d_v"),
+        "input_with_mask": cfg_parser.getboolean("model", "input_with_mask"),
+        "diagonal_attention_mask": cfg_parser.getboolean("model", "diagonal_attention_mask"),
+        "param_sharing_strategy": cfg_parser.get("model", "param_sharing_strategy"),
+    }
+
     model = MODEL_DICT[args.model_type](**model_args)
     args.total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Num of total trainable params is: {args.total_params}")
 
-    # if utilize GPU and GPU available, then move
     if "cuda" in args.device and torch.cuda.is_available():
         model = model.to(args.device)
 
     if args.test_mode:
         logger.info("Entering testing mode...")
-        args.model_path = cfg.get("test", "model_path")
-        args.save_imputations = cfg.getboolean("test", "save_imputations")
-        args.result_saving_path = cfg.get("test", "result_saving_path")
-        os.makedirs(args.result_saving_path) if not os.path.exists(
-            args.result_saving_path
-        ) else None
+        args.model_path = cfg_parser.get("test", "model_path")
+        args.save_imputations = cfg_parser.getboolean("test", "save_imputations")
+        args.result_saving_path = cfg_parser.get("test", "result_saving_path")
+        os.makedirs(args.result_saving_path, exist_ok=True)
         model = load_model(model, args.model_path, logger)
         test_dataloader = unified_dataloader.get_test_dataloader()
         test_trained_model(model, test_dataloader)
         if args.save_imputations:
-            (
-                train_data,
-                val_data,
-                test_data,
-            ) = unified_dataloader.prepare_all_data_for_imputation()
+            train_data, val_data, test_data = unified_dataloader.prepare_all_data_for_imputation()
             impute_all_missing_data(model, train_data, val_data, test_data)
-    else:  # in the training mode
+    else:
         logger.info(f"Creating {args.optimizer_type} optimizer...")
-
-        optimizer = OPTIMIZER[args.optimizer_type](
-            model.parameters(), lr=dict_args["lr"], weight_decay=args.weight_decay
-        )
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         logger.info("Entering training mode...")
         train_dataloader, val_dataloader = unified_dataloader.get_train_val_dataloader()
         training_controller = Controller(args.early_stop_patience)
 
         train_set_size = unified_dataloader.train_set_size
-        logger.info(
-            f"train set len is {train_set_size}, batch size is {args.batch_size},"
-            f"so each epoch has {math.ceil(train_set_size / args.batch_size)} steps"
-        )
+        if train_set_size is None:
+            logger.error("train_set_size is None")
+        else:
+            logger.info(
+                f"train set len is {train_set_size}, batch size is {args.batch_size},"
+                f" so each epoch has {math.ceil(train_set_size / args.batch_size)} steps"
+            )
 
-        tb_summary_writer = SummaryWriter(
-            os.path.join(args.log_saving, "tensorboard_" + time_now)
-        )
-        train(
-            model,
-            optimizer,
-            train_dataloader,
-            val_dataloader,
-            tb_summary_writer,
-            training_controller,
-            logger,
-        )
-
+        tb_summary_writer = SummaryWriter(os.path.join(args.log_saving, "tensorboard_" + time_now))
+        train(model, optimizer, train_dataloader, val_dataloader, tb_summary_writer, training_controller, logger, args)
     logger.info("All Done.")
+
+

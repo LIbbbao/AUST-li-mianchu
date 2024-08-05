@@ -24,10 +24,11 @@ Wenjie Du, David Cote, and Yan Liu. SAITS: Self-Attention-based Imputation for T
 # Created by Wenjie Du <wenjay.du@gmail.com>
 # License: MIT
 
+import torch
 
-from modeling.layers import *
+import torch.nn as nn
+from modeling.layers import EncoderLayer, PositionalEncoding  # 确保正确导入依赖
 from modeling.utils import masked_mae_cal
-
 
 class TransformerEncoder(nn.Module):
     def __init__(
@@ -54,7 +55,6 @@ class TransformerEncoder(nn.Module):
         self.device = kwargs["device"]
 
         if kwargs["param_sharing_strategy"] == "between_group":
-            # For between_group, only need to create 1 group and repeat n_groups times while forwarding
             self.layer_stack = nn.ModuleList(
                 [
                     EncoderLayer(
@@ -72,9 +72,7 @@ class TransformerEncoder(nn.Module):
                     for _ in range(n_group_inner_layers)
                 ]
             )
-        else:  # then inner_group，inner_group is the way used in ALBERT
-            # For inner_group, only need to create n_groups layers
-            # and repeat n_group_inner_layers times in each group while forwarding
+        else:
             self.layer_stack = nn.ModuleList(
                 [
                     EncoderLayer(
@@ -100,7 +98,16 @@ class TransformerEncoder(nn.Module):
 
     def impute(self, inputs):
         X, masks = inputs["X"], inputs["missing_mask"]
-        input_X = torch.cat([X, masks], dim=2) if self.input_with_mask else X
+        # 打印 X 和 masks 的形状进行调试
+        print(f"X shape: {X.shape}")
+        print(f"masks shape: {masks.shape}")
+
+        # 确保 X 和 masks 是三维的
+        if X.dim() == 3 and masks.dim() == 3:
+            input_X = torch.cat([X, masks], dim=2) if self.input_with_mask else X
+        else:
+            raise ValueError("X and masks must be 3-dimensional")
+
         input_X = self.embedding(input_X)
         enc_output = self.dropout(self.position_enc(input_X))
 
@@ -124,7 +131,6 @@ class TransformerEncoder(nn.Module):
         imputed_data, learned_presentation = self.impute(inputs)
         reconstruction_MAE = masked_mae_cal(learned_presentation, X, masks)
         if (self.MIT or stage == "val") and stage != "test":
-            # have to cal imputation loss in the val stage; no need to cal imputation loss here in the test stage
             imputation_MAE = masked_mae_cal(
                 learned_presentation, inputs["X_holdout"], inputs["indicating_mask"]
             )
@@ -138,3 +144,6 @@ class TransformerEncoder(nn.Module):
             "reconstruction_MAE": reconstruction_MAE,
             "imputation_MAE": imputation_MAE,
         }
+
+
+

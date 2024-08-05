@@ -1,0 +1,37 @@
+2024-08-03 21:27:51,090 - Namespace(file_path='RawData/AirQuality/PRSA_Data_20130301-20170228', artificial_missing_rate=0.1, seq_len=24, dataset_name='AirQuality_seqlen24_01masked', saving_path='../generated_datasets')
+2024-08-03 21:27:51,155 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Dingling_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,179 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Dongsi_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,203 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Gucheng_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,225 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Wanliu_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,247 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Tiantan_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,268 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Changping_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,291 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Aotizhongxin_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,314 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Huairou_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,337 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Nongzhanguan_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,359 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Shunyi_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,382 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Wanshouxigong_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,405 - reading RawData/AirQuality/PRSA_Data_20130301-20170228/PRSA_Data_Guanyuan_20130301-20170228.csv, data shape (35064, 12)
+2024-08-03 21:27:51,405 - There are total 12 stations, they are ['Dingling', 'Dongsi', 'Gucheng', 'Wanliu', 'Tiantan', 'Changping', 'Aotizhongxin', 'Huairou', 'Nongzhanguan', 'Shunyi', 'Wanshouxigong', 'Guanyuan']
+2024-08-03 21:27:51,432 - Original df missing rate: 0.016
+2024-08-03 21:27:51,433 - months selected as test set are <PeriodArray>
+['2013-03', '2013-04', '2013-05', '2013-06', '2013-07', '2013-08', '2013-09',
+ '2013-10', '2013-11', '2013-12']
+Length: 10, dtype: period[M]
+2024-08-03 21:27:51,433 - months selected as val set are <PeriodArray>
+['2014-01', '2014-02', '2014-03', '2014-04', '2014-05', '2014-06', '2014-07',
+ '2014-08', '2014-09', '2014-10']
+Length: 10, dtype: period[M]
+2024-08-03 21:27:51,433 - months selected as train set are <PeriodArray>
+['2014-11', '2014-12', '2015-01', '2015-02', '2015-03', '2015-04', '2015-05',
+ '2015-06', '2015-07', '2015-08', '2015-09', '2015-10', '2015-11', '2015-12',
+ '2016-01', '2016-02', '2016-03', '2016-04', '2016-05', '2016-06', '2016-07',
+ '2016-08', '2016-09', '2016-10', '2016-11', '2016-12', '2017-01', '2017-02']
+Length: 28, dtype: period[M]
+2024-08-03 21:27:51,571 - In val set, num of artificially-masked values: 89756.0
+2024-08-03 21:27:51,571 - In test set, num of artificially-masked values: 89766.0
+2024-08-03 21:27:51,571 - Feature num: 132,
+Sample num in train set: 850
+Sample num in val set: 303
+Sample num in test set: 305
+
+2024-08-03 21:27:51,587 - All done. Saved to ../generated_datasets/AirQuality_seqlen24_01masked.

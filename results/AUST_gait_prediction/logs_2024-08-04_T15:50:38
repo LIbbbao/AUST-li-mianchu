@@ -1,0 +1,7 @@
+2024-08-04 15:50:38,467 - args: Namespace(config_path='configs/your_dataset_SAITS.ini', test_mode=False, param_searching_mode=False, dataset_base_dir='generated_datasets', result_saving_base_dir='results', seq_len=11, batch_size=128, num_workers=4, feature_num=13, dataset_name='saits_input_data.npz', dataset_path='generated_datasets/saits_input_data.npz', eval_every_n_steps=60, MIT=True, ORT=True, lr=0.000669204734411692, optimizer_type='adam', weight_decay=0.0, device='cuda', epochs=100, early_stop_patience=30, model_saving_strategy='best', max_norm=0.0, imputation_loss_weight=1.0, reconstruction_loss_weight=1.0, model_name='AUST_gait_prediction', model_type='Transformer', input_with_mask=True, n_groups=2, n_group_inner_layers=1, param_sharing_strategy='inner_group', d_model=256, d_inner=128, n_head=4, d_k=64, d_v=64, dropout=0.1, diagonal_attention_mask=False, model_saving='results/AUST_gait_prediction/models/2024-08-04_T15:50:38', log_saving='results/AUST_gait_prediction/logs')
+2024-08-04 15:50:38,467 - Config file path: configs/your_dataset_SAITS.ini
+2024-08-04 15:50:38,467 - Model name: AUST_gait_prediction
+2024-08-04 15:50:38,472 - Num of total trainable params is: 668429
+2024-08-04 15:50:38,583 - Creating adam optimizer...
+2024-08-04 15:50:38,844 - Entering training mode...
+2024-08-04 15:50:38,849 - train set len is 6879, batch size is 128,so each epoch has 54 steps

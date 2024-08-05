@@ -1,0 +1,25 @@
+2024-08-03 21:27:08,991 - Namespace(raw_data_path='RawData/Physio2012_mega/mega', outcome_files_dir='RawData/Physio2012_mega/', artificial_missing_rate=0.1, train_frac=0.8, val_frac=0.2, dataset_name='physio2012_37feats_01masked_1', saving_path='../generated_datasets')
+2024-08-03 21:27:09,599 - Pass 150649, because its len==1, having no time series data
+2024-08-03 21:27:11,615 - Pass 142731, because its len==1, having no time series data
+2024-08-03 21:27:12,511 - Pass 143656, because its len==1, having no time series data
+2024-08-03 21:27:13,563 - Pass 150309, because its len==1, having no time series data
+2024-08-03 21:27:14,812 - Pass 140936, because its len==1, having no time series data
+2024-08-03 21:27:18,376 - Pass 147514, because its len==1, having no time series data
+2024-08-03 21:27:19,049 - Pass 156254, because its len==1, having no time series data
+2024-08-03 21:27:25,048 - Pass 155655, because its len==1, having no time series data
+2024-08-03 21:27:28,172 - Pass 140501, because its len==1, having no time series data
+2024-08-03 21:27:35,320 - Pass 145611, because its len==1, having no time series data
+2024-08-03 21:27:35,563 - Pass 141264, because its len==1, having no time series data
+2024-08-03 21:27:41,264 - Pass 142998, because its len==1, having no time series data
+2024-08-03 21:27:47,214 - There are total 7672 patients in train set.
+2024-08-03 21:27:47,214 - There are total 1918 patients in val set.
+2024-08-03 21:27:47,214 - There are total 2398 patients in test set.
+2024-08-03 21:27:47,686 - In val set, num of artificially-masked values: 65558.0
+2024-08-03 21:27:47,687 - In test set, num of artificially-masked values: 81921.0
+2024-08-03 21:27:47,687 - All saved features: ['ALP', 'ALT', 'AST', 'Albumin', 'BUN', 'Bilirubin', 'Cholesterol', 'Creatinine', 'DiasABP', 'FiO2', 'GCS', 'Glucose', 'HCO3', 'HCT', 'HR', 'K', 'Lactate', 'MAP', 'MechVent', 'Mg', 'NIDiasABP', 'NIMAP', 'NISysABP', 'Na', 'PaCO2', 'PaO2', 'Platelets', 'RespRate', 'SaO2', 'SysABP', 'Temp', 'TroponinI', 'TroponinT', 'Urine', 'WBC', 'Weight', 'pH']
+2024-08-03 21:27:47,708 - Positive rate in train set: 1119/7672=0.146
+2024-08-03 21:27:47,708 - Positive rate in val set: 264/1918=0.138
+2024-08-03 21:27:47,708 - Positive rate in test set: 324/2398=0.135
+2024-08-03 21:27:47,708 - Dataset overall positive rate: 0.142
+2024-08-03 21:27:47,722 - Dataset overall missing rate of original feature vectors (without any artificial mask): 0.797
+2024-08-03 21:27:47,829 - All done. Saved to ../generated_datasets/physio2012_37feats_01masked_1.

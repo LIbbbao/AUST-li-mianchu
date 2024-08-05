@@ -31,7 +31,22 @@ from sklearn import metrics
 plt.rcParams["savefig.dpi"] = 300  # pixel
 plt.rcParams["figure.dpi"] = 300  # resolution
 plt.rcParams["figure.figsize"] = [8, 4]  # figure size
+import torch
 
+def result_processing(results):
+    processed_results = {}
+    if "loss" in results:
+        processed_results["loss"] = results["loss"].item()
+    if "accuracy" in results:
+        processed_results["accuracy"] = results["accuracy"].item()
+    return processed_results
+
+def process_each_training_step(results, optimizer, val_dataloader, training_controller, logger):
+    loss = results["loss"]
+    loss.backward()
+    optimizer.step()
+    logger.info(f"Training step: loss={loss.item()}")
+    return training_controller.check_early_stopping(loss)
 
 def masked_mae_cal(inputs, target, mask):
     """calculate Mean Absolute Error"""

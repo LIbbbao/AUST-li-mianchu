@@ -1,0 +1,25 @@
+2024-08-03 21:27:52,991 - Namespace(file_path='RawData/Electricity/LD2011_2014.txt', artificial_missing_rate=0.1, seq_len=100, dataset_name='Electricity_seqlen100_01masked', saving_path='../generated_datasets')
+2024-08-03 21:27:55,674 - months selected as test set are <PeriodArray>
+['2011-01', '2011-02', '2011-03', '2011-04', '2011-05', '2011-06', '2011-07',
+ '2011-08', '2011-09', '2011-10']
+Length: 10, dtype: period[M]
+2024-08-03 21:27:55,674 - months selected as val set are <PeriodArray>
+['2011-11', '2011-12', '2012-01', '2012-02', '2012-03', '2012-04', '2012-05',
+ '2012-06', '2012-07', '2012-08']
+Length: 10, dtype: period[M]
+2024-08-03 21:27:55,674 - months selected as train set are <PeriodArray>
+['2012-09', '2012-10', '2012-11', '2012-12', '2013-01', '2013-02', '2013-03',
+ '2013-04', '2013-05', '2013-06', '2013-07', '2013-08', '2013-09', '2013-10',
+ '2013-11', '2013-12', '2014-01', '2014-02', '2014-03', '2014-04', '2014-05',
+ '2014-06', '2014-07', '2014-08', '2014-09', '2014-10', '2014-11', '2014-12',
+ '2015-01']
+Length: 29, dtype: period[M]
+2024-08-03 21:27:57,206 - Already masked out 10.0% values in train set
+2024-08-03 21:27:58,319 - In val set, num of artificially-masked values: 1024851.0
+2024-08-03 21:27:58,322 - In test set, num of artificially-masked values: 1020596.0
+2024-08-03 21:27:58,322 - Feature num: 370,
+816 (0.584) samples in train set
+291 (0.208) samples in val set
+290 (0.208) samples in test set
+
+2024-08-03 21:27:58,607 - All done. Saved to ../generated_datasets/Electricity_seqlen100_01masked.
